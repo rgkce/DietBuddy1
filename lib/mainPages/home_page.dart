@@ -387,19 +387,34 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Kilonuzu Güncelleyin'),
+          title: const Text('Update Your Weight'),
           content: TextField(
             controller: weightController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Yeni Kilo (kg)'),
+            decoration: const InputDecoration(labelText: 'New Weight (kg)'),
           ),
           actions: [
             TextButton(
-              child: const Text('İptal'),
+              child: Text(
+                'Cancel',
+                style: AppStyles.titleStyle.copyWith(
+                  fontSize: 18,
+                  color: AppColors.lineerStart,
+                ),
+              ),
               onPressed: () => Navigator.pop(context),
             ),
             ElevatedButton(
-              child: const Text('Güncelle'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.button, // Mor arka plan rengi
+              ),
+              child: Text(
+                'Update',
+                style: AppStyles.titleStyle.copyWith(
+                  color: AppColors.lineerStart,
+                  fontSize: 18,
+                ),
+              ),
               onPressed: () {
                 final newWeight = double.tryParse(weightController.text);
                 if (newWeight != null) {
