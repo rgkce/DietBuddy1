@@ -363,13 +363,16 @@ Please review the full agreement before proceeding.
                                             'Decline',
                                             style: AppStyles.textStyle.copyWith(
                                               color: Colors.red,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
                                             ),
                                           ),
                                         ),
                                         ElevatedButton(
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                AppColors.vibrantBlue,
+                                            backgroundColor: AppColors
+                                                .chartColor
+                                                .withOpacity(0.75),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
                                                   BorderRadius.circular(8),
@@ -385,7 +388,8 @@ Please review the full agreement before proceeding.
                                           child: Text(
                                             'Accept',
                                             style: AppStyles.textStyle.copyWith(
-                                              color: Colors.white,
+                                              color: AppColors.primaryColor,
+                                              fontSize: 18,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
