@@ -23,16 +23,17 @@ class _ChatbotPageState extends State<ChatbotPage>
   late Animation<double> _waveAnimation;
 
   bool _isTyping = false;
+  bool _showSettings = false;
+
+  String? _ollamaUrl;
 
   // Ollama konfigürasyonu
-  static const String ollamaUrl =
-      'http://10.0.2.2:11434/api/generate'; // Android emulator için
-  // Fiziksel cihaz için bilgisayarınızın IP adresini kullanın: 'http://192.168.1.X:11434/api/generate'
-  static const String modelName = 'phi3:mini'; // Önce en küçük modeli deneyin
+  static const String modelName = 'phi3:mini'; // Model adı merkezi olarak da yönetilebilir
 
   @override
   void initState() {
     super.initState();
+    _loadOllamaUrl();
     _controllerAnim = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
@@ -73,6 +74,109 @@ class _ChatbotPageState extends State<ChatbotPage>
     _preloadModel();
   }
 
+  Future<void> _loadOllamaUrl() async {
+    final url = await AppConfig.getOllamaUrl();
+    setState(() {
+      _ollamaUrl = url;
+    });
+  }
+
+  // IP adresi ayarlama fonksiyonu
+  Future<void> _showIPSettings() async {
+    final TextEditingController ipController = TextEditingController(text: _ollamaUrl?.replaceAll('http://', '').replaceAll(':11434', '') ?? '');
+    
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Ollama Sunucu Ayarları'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Bilgisayarınızın IP adresini girin:'),
+              const SizedBox(height: 10),
+              TextField(
+                controller: ipController,
+                decoration: const InputDecoration(
+                  hintText: '192.168.1.100',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Not: Bilgisayarınızda Ollama çalışıyor olmalı ve aynı WiFi ağında olmalısınız.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('İptal'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final ip = ipController.text.trim();
+                if (ip.isNotEmpty) {
+                  final newUrl = 'http://$ip:11434';
+                  await AppConfig.setOllamaUrl(newUrl);
+                  setState(() {
+                    _ollamaUrl = newUrl;
+                  });
+                  Navigator.of(context).pop();
+                  _testConnection();
+                }
+              },
+              child: const Text('Kaydet'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Bağlantı test fonksiyonu
+  Future<void> _testConnection() async {
+    setState(() {
+      _isTyping = true;
+    });
+
+    try {
+      final response = await http
+          .get(Uri.parse('$_ollamaUrl/api/tags'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _messages.add({
+            'role': 'bot',
+            'message': '✅ Bağlantı başarılı! Ollama sunucusuna erişim sağlandı.',
+          });
+        });
+      } else {
+        setState(() {
+          _messages.add({
+            'role': 'bot',
+            'message': '❌ Bağlantı hatası: ${response.statusCode}',
+          });
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _messages.add({
+          'role': 'bot',
+          'message': '❌ Bağlantı hatası: $e\n\nLütfen:\n1. Bilgisayarınızda Ollama çalışıyor mu?\n2. IP adresi doğru mu?\n3. Aynı WiFi ağında mısınız?',
+        });
+      });
+    } finally {
+      setState(() {
+        _isTyping = false;
+      });
+      _scrollToBottom();
+    }
+  }
+
   // Model ön yükleme fonksiyonu
   Future<void> _preloadModel() async {
     try {
@@ -102,8 +206,9 @@ class _ChatbotPageState extends State<ChatbotPage>
   // Mevcut modelleri getir
   Future<List<String>> _getAvailableModels() async {
     try {
+      if (_ollamaUrl == null) return [];
       final response = await http
-          .get(Uri.parse('http://10.0.2.2:11434/api/tags'))
+          .get(Uri.parse('$_ollamaUrl/api/tags'))
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -132,13 +237,17 @@ class _ChatbotPageState extends State<ChatbotPage>
   // Ollama API'sine istek gönderen fonksiyon
   Future<String> _sendToOllama(String message) async {
     try {
-      print('Ollama\'ya istek gönderiliyor: $ollamaUrl');
+      if (_ollamaUrl == null) {
+        return 'Ollama adresi ayarlanmadı. Lütfen sağ üstteki ayarlar butonuna tıklayarak sunucu adresini ayarlayın.';
+      }
+      
+      print('Ollama\'ya istek gönderiliyor: $_ollamaUrl');
       print('Model: $modelName');
       print('Mesaj: $message');
 
       final response = await http
           .post(
-            Uri.parse(ollamaUrl),
+            Uri.parse('$_ollamaUrl/api/generate'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'model': modelName,
@@ -170,9 +279,11 @@ class _ChatbotPageState extends State<ChatbotPage>
     } catch (e) {
       print('Detaylı Hata: $e');
       if (e.toString().contains('Connection refused')) {
-        return 'Ollama sunucusu çalışmıyor. Lütfen "ollama serve" komutunu çalıştırın.';
+        return 'Ollama sunucusu çalışmıyor veya erişilemiyor. Lütfen:\n1. Bilgisayarınızda "ollama serve" komutunu çalıştırın\n2. IP adresinin doğru olduğundan emin olun\n3. Aynı WiFi ağında olduğunuzdan emin olun';
       } else if (e.toString().contains('TimeoutException')) {
         return 'Model yükleniyor veya çok yavaş yanıt veriyor. Lütfen bekleyin veya daha küçük bir model deneyin.';
+      } else if (e.toString().contains('SocketException')) {
+        return 'Ağ bağlantısı hatası. Lütfen:\n1. İnternet bağlantınızı kontrol edin\n2. IP adresinin doğru olduğundan emin olun\n3. Güvenlik duvarı ayarlarını kontrol edin';
       }
       return 'Bağlantı hatası: ${e.toString()}';
     }
@@ -284,24 +395,31 @@ class _ChatbotPageState extends State<ChatbotPage>
             radius: avatarRadius,
           ),
           const SizedBox(width: 20),
-          AnimatedBuilder(
-            animation: _controllerAnim,
-            builder: (context, child) {
-              return Opacity(
-                opacity: _fadeAnimation.value,
-                child: Transform.translate(
-                  offset: Offset(0, _waveAnimation.value),
-                  child: Text(
-                    "Vita",
-                    style: AppStyles.pageTitle.copyWith(
-                      fontSize: titleFontSize,
-                      fontWeight: FontWeight.bold,
-                      color: _colorAnimation.value,
+          Expanded(
+            child: AnimatedBuilder(
+              animation: _controllerAnim,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: _fadeAnimation.value,
+                  child: Transform.translate(
+                    offset: Offset(0, _waveAnimation.value),
+                    child: Text(
+                      "Vita",
+                      style: AppStyles.pageTitle.copyWith(
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: _colorAnimation.value,
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
+          ),
+          IconButton(
+            onPressed: _showIPSettings,
+            icon: const Icon(Icons.settings),
+            tooltip: 'Sunucu Ayarları',
           ),
         ],
       ),

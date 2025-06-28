@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:dietbuddy/constants/styles.dart';
 
 class LlamaService {
   final String baseUrl;
   
-  LlamaService({required this.baseUrl});
+  LlamaService({String? baseUrl}) : baseUrl = baseUrl ?? AppConfig.ollamaBaseUrl;
   
   Future<String> generateResponse(String prompt) async {
     try {

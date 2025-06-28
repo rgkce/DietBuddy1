@@ -2,9 +2,10 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:dietbuddy/constants/styles.dart';
 
 class OllamaService {
-  static const String _baseUrl = 'http://127.0.0.1:11434';
+  static String get _baseUrl => AppConfig.ollamaBaseUrl;
   static const String _defaultModel = 'phi3:mini';
   
   // Mevcut modelleri listele
